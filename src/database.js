@@ -9,17 +9,51 @@ const db = new sqlite3.Database(path.join(__dirname, '../pastry.db'), (err) =>{
     }
 });
 
+// updating products table with category_id as foreign key
 db.run(`
     CREATE TABLE IF NOT EXISTS products(
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT NOT NULL,
-        description TEXT,
-        price REAL NOT NULL,
-        category TEXT,
-        image_url TEXT,
-        available INTEGER DEFAULT 1,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    description TEXT,
+    price REAL NOT NULL,
+    category_id INTEGER,
+    image_url TEXT,
+    available INTEGER DEFAULT 1,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (category_id) REFERENCES categories(id)
     )
     `);
 
-    module.exports = db
+// create categories table if doesn't already exist
+db.run(`
+    CREATE TABLE IF NOT EXISTS categories(
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL UNIQUE,
+    description TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+    `);
+
+// create ingredients table
+db.run(`
+    CREATE TABLE IF NOT EXISTS ingredients(
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL UNIQUE,
+    allergen INTEGER DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+    `);
+
+// create junction table for products and ingredients (many-to-many relationship)
+db.run(`
+    CREATE TABLE IF NOT EXISTS product_ingredients(
+    product_id INTEGER,
+    ingredient_id INTEGER,
+    quantity TEXT,
+    PRIMARY KEY (product_id, ingredient_id),
+    FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE,
+    FOREIGN KEY (ingredient_id) REFERENCES ingredients(id) ON DELETE CASCADE
+    )
+    `);
+
+module.exports = db

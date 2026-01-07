@@ -8,11 +8,13 @@ router.get('/', (req, res) =>{
         if(err){
             return res.status(500).json({error: err.message});
         }
+        console.log('HEADERS:', req.headers);
+        console.log('BODY:', req.body);
         res.json({data: rows});
     });
 });
 
-// GET single product
+// GET single productc
 router.get('/:id', (req, res) => {
     const{ id } = req.params;
     db.get('SELECT * FROM products WHERE id = ?', [id], (err, row) => {
