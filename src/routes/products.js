@@ -123,28 +123,47 @@ router.delete('/:id/ingredients/:ingredient_id', (req, res) => {
 
 // POST create new product
 router.post('/', (req, res) => {
-    const {name, description, price, category_id, image_url, available } = req.body;
+    const { name, description, price, category, image_url, available } = req.body;
 
-    if(!name || !price){
-        return res.status(400).json({ error: 'Name and price are required'});
+    // Basic validation
+    if (!name || !price || !category) {
+        return res.status(400).json({ error: 'Name, price, and category are required' });
     }
 
-    const sql = `INSERT INTO products (name, description, price, category_id, image_url, available)
-                VALUES (?, ?, ?, ?, ?, ?)`;
-    
-    db.run(sql, [name, description, price, category_id, image_url, available ?? 1], function(err) {
-        if(err){
-            if(err.message.includes('FOREIGN KEY')){
-                return res.status(404).json({error: err.message});
+    // Step 1: Look up category ID by name
+    db.get('SELECT id FROM categories WHERE name = ?', [category], (err, row) => {
+        if (err) return res.status(500).json({ error: err.message });
+        if (!row) return res.status(404).json({ error: 'Category not found' });
+
+        const category_id = row.id; // This is the ID that the DB needs
+
+        // Step 2: Insert the product using category_id
+        const sql = `
+            INSERT INTO products (name, description, price, category_id, image_url, available)
+            VALUES (?, ?, ?, ?, ?, ?)
+        `;
+
+        db.run(
+            sql,
+            [name, description, price, category_id, image_url, available ?? 1],
+            function(err) {
+                if (err) {
+                    if (err.message.includes('FOREIGN KEY')) {
+                        return res.status(404).json({ error: err.message });
+                    }
+                    return res.status(500).json({ error: err.message });
+                }
+
+                // Step 3: Respond with success
+                res.status(201).json({
+                    message: 'Product created successfully',
+                    data: { id: this.lastID }
+                });
             }
-            return res.status(500).json({ errror: err.message });
-        }
-        res.status(201).json({
-            message: 'Product created successfully',
-            data: { id: this.lastID }
-        });
+        );
     });
 });
+
 
 // PUT update product
 router.put('/:id', (req, res) => {
