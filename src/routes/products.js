@@ -16,7 +16,7 @@ router.get('/', (req, res) =>{
 
     // Filter by category if provided
     if(category){
-        sql += 'WHERE c.name = ?';
+        sql += ' WHERE c.name = ?';
         params.push(category);
     }
 
@@ -92,7 +92,7 @@ router.post('/:id/ingredients', (req, res) => {
 
     const sql = 'INSERT INTO product_ingredients (product_id, ingredient_id, quantity) VALUES (?, ?, ?)';
 
-    db.run(sql, [id, ingredient_id, quantity], function(err){
+    db.run(sql, [id, ingredient_id, quantity ?? 1], function(err){
         if(err){
             if(err.message.includes('FOREIGN KEY')){
                 return res.status(404).json({error: 'Product or ingredient not found'});
@@ -108,6 +108,7 @@ router.post('/:id/ingredients', (req, res) => {
 
 // DELETE remove ingredient from product
 router.delete('/:id/ingredients/:ingredient_id', (req, res) => {
+    const { id, ingredient_id } = req.params;
     const sql = 'DELETE FROM product_ingredients WHERE product_id = ? AND ingredient_id = ?';
 
     db.run(sql, [id, ingredient_id], function(err){
@@ -145,7 +146,7 @@ router.post('/', (req, res) => {
 
         db.run(
             sql,
-            [name, description, price, category_id, image_url, available ?? 1],
+            [name, description, price, category_id, image_url ?? null, available ?? 1],
             function(err) {
                 if (err) {
                     if (err.message.includes('FOREIGN KEY')) {
@@ -164,29 +165,35 @@ router.post('/', (req, res) => {
     });
 });
 
-
 // PUT update product
 router.put('/:id', (req, res) => {
-    const { id } = req.params;
-    const { name, description, price, category, image_url, available } = req.body;
+    const {id} = req.params;
+    const {name, description, price, category, image_url, available} = req.body;
 
-    const sql = `UPDATE products
-                 SET name = ?, description = ?, price = ?, category = ?, image_url = ?, available = ?
-                 WHERE id = ?`;
+    if(!name || !price || !category){
+        return res.status(400).json({error: 'Name, price, and category are required'});
+    }
 
-    db.run(sql, [name, description, price, category, image_url, available, id], function(err) {
-        if(err){
-            if(err.message.includes('FOREIGN KEY')){
-                return res.status(404).json({error: 'Category not found'});
-            }
-            return res.status(500).json({ error: err.message });
-        }
-        if(this.changes === 0){
-            return res.status(404).json({ error: 'Product not found' });
-        }
-        res.json({ message: 'Product updated succeessfully'});
+    // lookup category_id using category name from the request body
+    db.get('SELECT id FROM categories WHERE name = ?', [category], (err, row) => {
+        if(err) return res.status(500).json({error: err.message});
+        if(!row) return res.status(404).json({error: 'Category not found'});
+
+        const category_id = row.id;
+
+        const sql = `
+        UPDATE products
+        SET name = ?, description = ?, price = ?, category_id = ?, image_url = ?, available = ?
+        WHERE id = ?
+        `;
+        db.run(sql, [name, description, price, category_id, image_url ?? null, available ?? 1, id], function(err){
+            if(err) return res.status(500).json({error: err.message});
+            if(this.changes === 0) return res.status(404).json({error: 'Product not found'});
+            res.json({message: 'Product updated successfully'});
+        });
     });
 });
+
 
 // DELETE product 
 router.delete('/:id', (req, res) => {
