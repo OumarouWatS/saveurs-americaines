@@ -9,6 +9,21 @@ const db = new sqlite3.Database(path.join(__dirname, '../pastry.db'), (err) =>{
     }
 });
 
+// create users table
+db.run(`
+    CREATE TABLE IF NOT EXISTS users(
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    email TEXT NOT NULL UNIQUE,
+    password TEXT NOT NULL,
+    first_name TEXT,
+    last_name TEXT,
+    phone TEXT,
+    address TEXT,
+    role TEXT DEFAULT 'customer',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+    `);
+
 // updating products table with category_id as foreign key
 db.run(`
     CREATE TABLE IF NOT EXISTS products(

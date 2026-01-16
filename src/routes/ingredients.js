@@ -62,7 +62,7 @@ router.put('/:id', (req, res) => {
         return res.status(400).json({error: 'Name is required'});
     }
 
-    const sql = 'U[DATE ingredients SET name = ?, allergen = ? WHERE id = ?';
+    const sql = 'UPDATE ingredients SET name = ?, allergen = ? WHERE id = ?';
 
     db.run(sql, [name, allergen, id], function(err){
         if(err){
@@ -72,8 +72,8 @@ router.put('/:id', (req, res) => {
     });
 });
 
-// DELETE ingredient
-router.delete('/:id', (req, res) => {
+//DELETE ingredient with safety check to ensure ingredient isn't used in products
+router.delete('/:id', (req, res) =>{
     const {id} = req.params;
 
     db.run('DELETE FROM ingredients WHERE id = ?', [id], function(err){

@@ -10,9 +10,9 @@ const PORT = 3000;
 app.use(express.json());
 
 // Routes
-app.use('/api/products', productRoutes);
-app.use('/api/categories', categoryRoutes);
-app.use('/api/ingredients', ingredientRoutes);
+app.use('/products', productRoutes);
+app.use('/categories', categoryRoutes);
+app.use('/ingredients', ingredientRoutes);
 
 app.get('/', (req, res) => {
     res.json({ message: 'Pastry API is running!' });
@@ -22,3 +22,8 @@ app.get('/', (req, res) => {
 app.listen(PORT, () => {
     console.log(`Server is running on http://localhost:${PORT}`);
 });
+
+
+
+// Testing notes: categories POST is currently done by id >> make it doable by category name
+// 

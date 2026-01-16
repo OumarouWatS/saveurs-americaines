@@ -6,7 +6,7 @@ const db = require('../database');
 router.get('/', (req, res) => {
     db.all('SELECT * FROM categories', [], (err, rows) =>{
         if(err){
-            return res.status(500),json({error: err.message});
+            return res.status(500).json({error: err.message});
         }
         res.json({data: rows});
     });
@@ -17,7 +17,7 @@ router.get('/:id', (req, res) =>{
     const {id} = req.params;
     db.get('SELECT * FROM categories WHERE id = ?', [id], (err, row) =>{
         if(err){
-            return res.status(500).jsons({error: err.message});
+            return res.status(500).json({error: err.message});
         }
         if(!row){
             return res.status(404).json({error: 'Category not found'});
@@ -102,19 +102,32 @@ router.put('/:id', (req, res) =>{
     });
 });
 
-// DELETE category
-router.delete('/:id', (red, res) =>{
+// DELETE category with check for exisiting products
+router.delete('/:id', (req, res) =>{
     const {id} = req.params;
 
-    db.run('DELETE FROM categories WHERE id = ?', [id], function(err){
+    db.get('SELECT COUNT(*) AS count FROM products WHERE category_id = ?', [id], (err, row) =>{
         if(err){
             return res.status(500).json({error: err.message});
         }
-        if(this.changes === 0){
-            return res.status(404).json({error: 'Category not found'});
+
+        if(row.count > 0){
+            //prevent deletion if count>0
+            return res.status(400).json({error: 'Category has products and cannot be deleted:('});
         }
-        res.json({message: 'Category deleted successfully'});
+
+        // else safe to delete
+        db.run('DELETE FROM categories WHERE id = ?', [id], function(err) {
+            if(err){
+                return res.status(500).json({error: err.message});
+            }
+            if(this.changes === 0){
+                return res.status(404).json({error: 'Category not found'});
+            }
+            res.json({message: 'Category deleted successfully'});
+        });
     });
 });
+
 
 module.exports = router;
