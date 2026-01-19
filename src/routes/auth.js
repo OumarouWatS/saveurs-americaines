@@ -59,7 +59,7 @@ router.post('/login', (req, res) => {
         return res.status(400).json({error: 'Email and password are required'});
     }
 
-    db.get('SELECT * FROM users WHERE email = ?', [emaili], async (err, user) => {
+    db.get('SELECT * FROM users WHERE email = ?', [email], async (err, user) => {
         if(err){
             return res.status(500).json({error: err.message});
         }
