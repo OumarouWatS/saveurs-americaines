@@ -84,6 +84,7 @@ router.put('/password', async (req, res) => {
             // Hash new password
             const hashedPassword = await bcrypt.hash(new_password, saltRounds);
 
+            // Update password
             db.run('UPDATE users SET password = ? WHERE id = ?', [hashedPassword, userId], function(err){
                 if(err){
                     return res.status(500).json({error: err.message});
