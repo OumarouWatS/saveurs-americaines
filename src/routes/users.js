@@ -53,7 +53,7 @@ router.put('/profile', (req, res) => {
 
 // PUT change password
 router.put('/password', async (req, res) => {
-    const userId = req.user.Id;
+    const userId = req.user.id;
     const {current_password, new_password} = req.body;
 
     if(!current_password || !new_password){
