@@ -4,6 +4,7 @@ const categoryRoutes = require('./routes/categories');
 const ingredientRoutes = require('./routes/ingredients');
 const authRoutes = require('./routes/auth');
 const userRoutes = require('./routes/users');
+const cartRoutes = require('./routes/cart');
 
 const app = express();
 const PORT = 3000;
@@ -17,6 +18,7 @@ app.use('/categories', categoryRoutes);
 app.use('/ingredients', ingredientRoutes);
 app.use('/auth', authRoutes);
 app.use('/users', userRoutes);
+app.use('/cart', cartRoutes);
 
 app.get('/', (req, res) => {
     res.json({ message: 'Pastry API is running!' });
