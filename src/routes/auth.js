@@ -103,3 +103,18 @@ router.post('/login', (req, res) => {
 });
 
 module.exports = router;
+
+
+/**
+ * {
+    "message": "Login successful",
+    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MiwiZW1haWwiOiJ0ZXN0X2FjY291bnRAZ21haWwuY29tIiwicm9sZSI6ImN1c3RvbWVyIiwiaWF0IjoxNzY5MTM3NTkxLCJleHAiOjE3NjkyMjM5OTF9.nPf9O5Tkhdudq2fa6rmvEislkCN2GuJkfIRlz0glbNk",
+    "user": {
+        "id": 2,
+        "email": "test_account@gmail.com",
+        "first_name": "Test",
+        "last_name": "Account",
+        "role": "customer"
+    }
+}
+ */

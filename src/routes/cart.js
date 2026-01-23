@@ -108,7 +108,7 @@ router.post('/items', (req, res) => {
 
             // Check if item is already in the cart
             db.get('SELECT * FROM cart_items WHERE cart_id = ? AND product_id = ?', 
-                [cart_id, product_id], 
+                [cart.id, product_id], 
                 (err, existingItem) =>{
                     if(err){
                         return res.status(500).json({error: err.message});
@@ -216,7 +216,7 @@ router.put('/item/:id', (req, res) => {
 });
 
 // DELETE remove item from cart
-router.delete('items/:id', (req, res) => {
+router.delete('/item/:id', (req, res) => {
     const userId = req.user.id;
     const {id} = req.params;
 
@@ -272,7 +272,7 @@ router.delete('/', (req, res) => {
 });
 
 // GET cart summary (just counts and total, lighter than full cart)
-router.get('/', (req, res) => {
+router.get('/summary', (req, res) => {
     const userId = req.user.id;
 
     getOrCreateCart(userId, (err, cart) => {
@@ -296,7 +296,7 @@ router.get('/', (req, res) => {
             }
 
             res.json({
-                cart_id: cart_id,
+                cart_id: cart.id,
                 item_types: summary.item_types || 0,
                 total_items: summary.total_items || 0,
                 total: summary.total ? summary.total.toFixed(2) : '0.00'

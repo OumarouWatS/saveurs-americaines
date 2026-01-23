@@ -96,4 +96,36 @@ db.run(`
     )
     `);
 
+// Create orders table
+db.run(`
+    CREATE TABLE IF NOT EXISTS orders (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    order_number TEXT NOT NULL,
+    order_number TEXT NOT NULL UNIQUE,
+    status TEXT DEFAULT 'pending',
+    total REAL NOT NULL,
+    delivery_address TEXT,
+    delivery_phone TEXT,
+    notes TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATATIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFENCES users(id)
+    )
+    `);
+
+db.run(`
+    CREATE TABLE IF NOT EXISTS order_items (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    order_id INTEGER NOT NULL,
+    product_id INTEGER NOT NULL,
+    product_name TEXT NOT NULL,
+    product_price REAL NOT NULL,
+    quantity INTEGER NOT NULL,
+    subtotal REAL NOT NULL,
+    FOREIGN KEY (order_id) REFENCES orders(id) ON DELETE CASCADE,
+    FOREIGN KEY (product_id) REFENCES products(id)
+    )
+    `);
+
 module.exports = db
