@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../database');
-const {authenticateToken, idAdmin} = require('../middleware/auth');
+const {authenticateToken, idAdmin, isAdmin} = require('../middleware/auth');
 
 //All order routes require authentication
 router.use(authenticateToken);
@@ -146,3 +146,227 @@ router.post('/', (req, res) => {
         });
     }
 });
+
+// Get all orders for current user
+router.get('/', (req, res) => {
+    const userId = req.user.id;
+    const {status} = req.query;
+
+    let sql = 'SELECT * FROM orders WHERE user_id = ?';
+    let params = [userId];
+
+    if(status){
+        sql += ' AND status = ?';
+        params.push(status);
+    }
+
+    sql += ' ORDER BY created_at DESC';
+
+    db.all(sql, params, (err, orders) => {
+        if(err){
+            return res.status(500).json({error: err.message});
+        }
+        res.json({data: orders});
+    });
+});
+
+// GET single order details
+router.get('/:id', (req, res) => {
+    const userId = req.user.id;
+    const {id} = req.params;
+
+    //Get order
+    db.get(
+        'SELECT * FROM orders WHERE id = ? AND user_id = ?',
+        [id, userId],
+        (err, order) => {
+            if(err){
+                return res.status(500).json({error: err.message});
+            }
+
+            if(!order){
+                return res.status(404).json({error: 'Order not found'});
+            }
+
+            //Get order items
+            db.all(
+                'SELECT * FROM order_items WHERE order_id = ?',
+                [id],
+                (err, items) => {
+                    if(err){
+                        return res.status(500).json({error: err.message});
+                    }
+                    res.json({
+                        data: {
+                            ...order,
+                            items: items
+                        }
+                    });
+                }
+            );
+        }
+    );
+});
+
+//PATCH update order status (admin only)
+router.patch('/:id/status', isAdmin, (req, res) => {
+    const {id} = req.params;
+    const {status} = req.body;
+
+    const validStatuses = ['pending', 'confirmed', 'preparing', 'ready', 'out_for_delivery', 'delivered', 'cancelled'];
+
+    if(!status || !validStatuses.includes(status)){
+        return res.status(400).json({
+            error: 'Invalid status',
+            valid_statuses: validStatuses
+        });
+    }
+
+    const sql = `
+    UPDATE orders
+    SET status = ?, updated_at = CURRENT_TIMESTAMP
+    WHERE id = ?
+    `;
+
+    db.run(sql, [status, id], function(err) {
+        if(err){
+            return res.status(500).json({error: err.message});
+        }
+
+        if(this.changes === 0){
+            return res.status(404).json({error: 'Order not found'});
+        }
+
+        res.json({message: 'Order status updated',
+            data: {
+                order_id: id,
+                status: status
+            }
+        });
+    });
+});
+
+//Get all orders (admin only)
+router.get('/admin/all', isAdmin, (req, res) => {
+    const {status, limit} = req.query;
+
+    let sql = `
+    SELECT
+        o.*,
+        u.email as customer_email,
+        u.first_name,
+        u.last_name
+    FROM orders o
+    JOIN users u ON o.user_id = u.id
+    `;
+
+    let param = [];
+
+    if(status){
+        sql += ' WHERE o.status = ?';
+        params.push(status);
+    }
+
+    sql += ' ORDER BY o.created_at DESC';
+
+    if(limit){
+        sql += ' LIMIT ?';
+        params.push(parseInt(limit));
+    }
+
+    db.all(sql, params, (err, orders) => {
+        if(err){
+            return res.status(500).json({error: err.message});
+        }
+        res.json({data: orders});
+    });
+});
+
+//GET single order details (admin - can view any order)
+router.get('/admin/:id', isAdmin, (req, res) => {
+    const {id} = req.params;
+
+    //Get order with user details
+    const orderSql = `
+    SELECT
+    o.*,
+    u.email as customer_email,
+    u.first_name,
+    u.last_name,
+    u.phone as customer_phone
+    FROM orders o
+    JOIN users u ON o.user_id = u.id
+    WHERE o.id = ?
+    `;
+
+    db.get(orderSql, [id], (err, order) => {
+        if(err){
+            return res.status(500).json({error: err.message});
+        }
+
+        if(!order){
+            return res.status(404).json({error: 'Order not found'});
+        }
+
+        // Get order items
+        db.all(
+            'SELECT * FROM order_items WHERE order_id = ?',
+            [id],
+            (err, items) => {
+                if(err){
+                    return res.status(500).json({error: err.message});
+                }
+
+                res.json({
+                    data: {
+                        ...order,
+                        items: items
+                    }
+                });
+            }
+        );
+    });
+});
+
+// DELETE cancel order (customer can only cancel pending orders)
+router.delete('/:id', (req, res) => {
+    const userId = req.user.id; 
+    const {id} = req.params;
+
+    //Check if order exists and belongs to user
+    db.get(
+        'SELECT * FROM orders WHERE id = ? AND user_id = ?',
+        [id, userId],
+        (err, order) => {
+            if(err){
+                return res.status(500).json({error: err.message});
+            }
+
+            if(!order){
+                return res.status(404).json({error: 'Order not found'});
+            }
+
+            //Only allow cancellationof pending orders
+            if(order.status !== 'pending'){
+                return res.status(400).json({
+                    error: 'Only pending orders can be cancelled',
+                    current_status: order.status
+                });
+            }
+
+            // Update status to cancelled instead of deleting
+            db.run(
+                'UPDATE orders SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+                ['cancelled', id],
+                function(err){
+                    if(err){
+                        return res.status(500).json({error: err.message});
+                    }
+                    res.json({message: 'Order cancelled successfully'});
+                }
+            );
+        }
+    );
+});
+
+module.exports = router;
