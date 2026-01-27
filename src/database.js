@@ -101,7 +101,6 @@ db.run(`
     CREATE TABLE IF NOT EXISTS orders (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER NOT NULL,
-    order_number TEXT NOT NULL,
     order_number TEXT NOT NULL UNIQUE,
     status TEXT DEFAULT 'pending',
     total REAL NOT NULL,
@@ -110,7 +109,7 @@ db.run(`
     notes TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATATIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFENCES users(id)
+    FOREIGN KEY (user_id) REFERENCES users(id)
     )
     `);
 
@@ -123,8 +122,8 @@ db.run(`
     product_price REAL NOT NULL,
     quantity INTEGER NOT NULL,
     subtotal REAL NOT NULL,
-    FOREIGN KEY (order_id) REFENCES orders(id) ON DELETE CASCADE,
-    FOREIGN KEY (product_id) REFENCES products(id)
+    FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE,
+    FOREIGN KEY (product_id) REFERENCES products(id)
     )
     `);
 

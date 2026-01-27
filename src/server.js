@@ -28,3 +28,10 @@ app.get('/', (req, res) => {
 app.listen(PORT, () => {
     console.log(`Server is running on http://localhost:${PORT}`);
 });
+
+
+/*
+Couldn't login through the test account (email: "test_account@gmail.com", password: "123pwd")
+Next steps --> troubleshoot registration issue and test orders routes
+
+*/
