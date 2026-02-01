@@ -5,17 +5,125 @@ const {authenticateToken, isAdmin} = require('../middleware/auth');
 
 // Public routes - no authentication needed
 
-// GET all products with category filter
+// GET all products with category filter, with advanced search, filtering, sorting, and pagination
 router.get('/', (req, res) =>{
-    const { category } = req.query;
+    const { 
+        category,
+        search,
+        min_price,
+        max_price,
+        sort = 'created_at',
+        order = 'DESC',
+        page = 1,
+        limit = 10,
+        available
+    } = req.query;
 
+    // Validate sort field to prevent SQL injection
+    const validSortFields = ['name', 'price', 'created_at', 'rating'];
+    const sortField = validSortFields.includes(sort) ? sort : 'created_at';
+    const sortOrder = order.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
+
+    // Calculate pagination
+    const pageNum = parseInt(page) || 1;
+    const limitNum = Math.min(parseInt(limit) || 10, 100); //max 100 items per page
+    const offset = (pageNum - 1) * limitNum;
+
+    // Build base query with average rating
     let sql = `
-        SELECT p.*, c.name as category_name
+        SELECT 
+            p.*, 
+            c.name as category_name,
+            COALESCE(AVG(r.rating), 0) as average_rating,
+            COUNT(DISTINCT r.id) as review_count
         FROM products p
         LEFT JOIN categories c ON p.category_id = c.id
+        LEFT JOIN reviews r ON p.id = r.product_id
     `;
 
+    let countSql = `
+    SELECT COUNT(DISTINCT p.id) as total
+    FROM products p
+    LEFT JOIN categories c ON p.category_id = c.id
+    `;
+
+    let conditions = [];
     let params = [];
+
+    if(search){
+        conditions.push('(p.ame LIKE ? OR p.description LIKE ?)');
+        params.push(`%${search}%`, `%${search}%`);
+    }
+
+    // Category filter
+    if(category){
+        conditions.push('c.name = ?');
+        params.push(category);
+    }
+
+    // Price range filter
+    if(min_price){
+        conditions.push('p.price >= ?');
+        this.param.push(parseFloat(min_price));
+    }
+
+    if(max_price){
+        conditions.push('p.price <= ?');
+        params.push(parseFloat(max_price));
+    }
+
+    // Availability filter
+    if(available !== undefined){
+        conditions.push('p.available = ?');
+        params.push(available === 'true' ? 1 : 0);
+    }
+
+    // Add WHERE clause if conditions exist
+    if(conditions.length > 0){
+        const whereClause = ' WHERE ' + conditions.join(' AND ');
+        sql += whereClause;
+        countSql += whereClause;
+    }
+
+    // Add sorting
+    if(sortField === 'rating'){
+        sql += ` ORDER BY average_rating ${sortedOrder}`;
+    }else{
+        sql += ` ORDER BY p.${sortField} ${sortOrder}`;
+    }
+
+    // Add pagination
+    sql += ' LIMIT ? OFFSET ?';
+    params.push(limitNum, offset);
+
+    // Get total count for pagination metadata
+    db.get(countSql, params.slice(0, -2), (err, countResult) => {
+        if(err){
+            return res.status(500).json({ error: err.message});
+        }
+
+        const total = countResult.total;
+        const totalPages = Math.ceil(total / limitNum);
+
+        // Get paginated results
+        db.all(sql, params, (err, rows) => {
+            if(err){
+                return res.status(500).json({error: err.message});
+            }
+
+            res.json({
+                data: rows,
+                pagination: {
+                    page: pageNum,
+                    limit: limitNum,
+                    total: total,
+                    total_pages: totalPages,
+                    has_next: pageNum < totalPages,
+                    has_prev: pageNum > 1
+                }
+            });
+        });
+    });
 
     // Filter by category if provided
     if(category){
@@ -31,7 +139,7 @@ router.get('/', (req, res) =>{
     });
 });
 
-// GET single productc
+// GET single product
 router.get('/:id', (req, res) => {
     const{ id } = req.params;
     const sql = `

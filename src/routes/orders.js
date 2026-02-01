@@ -93,7 +93,7 @@ router.post('/', (req, res) => {
         //Start transaction-like behabior (SQLite doesn't support full transactions easily here)
         //Insert order
         const orderSql = `
-        INSERT INTO orders (users_id, order_number, status, total, delivery_address, delivery_phone, notes)
+        INSERT INTO orders (user_id, order_number, status, total, delivery_address, delivery_phone, notes)
         VALUES (?, ?, 'pending', ?, ?, ?, ?)
         `;
 
@@ -260,7 +260,7 @@ router.get('/admin/all', isAdmin, (req, res) => {
     JOIN users u ON o.user_id = u.id
     `;
 
-    let param = [];
+    let params = [];
 
     if(status){
         sql += ' WHERE o.status = ?';
