@@ -139,14 +139,21 @@ router.get('/', (req, res) =>{
     });
 });
 
-// GET single product
+// GET single product with category info and reviews
 router.get('/:id', (req, res) => {
     const{ id } = req.params;
+
     const sql = `
-        SELECT p.*, c.name as category_name
+        SELECT 
+            p.*, 
+            c.name as category_name,
+            COALESCE(AVG(r.rating), 0) as average_rating,
+            COUNT(DISTINCT r.id) as review_count
         FROM products p
         LEFT JOIN categories c ON p.category_id = c.id
+        LEFT JOIN reviews r ON p.id = r.product_id
         WHERE p.id = ?
+        GROUP BY p.id
     `;
 
     db.get(sql, [id], (err, row) => {
@@ -156,7 +163,7 @@ router.get('/:id', (req, res) => {
         if(!row){
             return res.status(404).json({ error: 'Product not found' });
         }
-    res.json({data: row});
+        res.json({data: row});
     });
 });
 
@@ -191,6 +198,108 @@ router.get('/:id/ingredients', (req, res) => {
         });
     });
 });
+
+// Get reviews for a product (with pagination)
+router.get('/:id/reviews', (req, res) => {
+    const {id} = req.params;
+    const {page = 1, limit = 10, sort = 'created_at', order = 'DESC'} = req.query;
+
+    const validSortFields = ['rating', 'created_at'];
+    const sortField = validSortFields.includes(sort) ? sort : 'created_at';
+    const sortOrder = order.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
+
+    const pageNum = parseInt(page) || 1;
+    const limitNum = Math.min(parseInt(limit) || 10, 50);
+    const offset = (pageNum - 1) * limitNum;
+
+    db.get('SELECT * FROM products WHERE id = ?', [id], (err, product) => {
+        if(err){
+            return res.status(500).json({error: err.message});
+        }
+        if(!product){
+            return res.status(500).json({error: 'Product not found'});
+        }
+
+        // Get total count
+        db.get(
+            'SELECT COUNT(*) as total FROM reviews WHERE product_id = ?',
+            [id],
+            (err, countResult) => {
+                if(err){
+                    return res.status(500).json({error: err.message});
+                }
+
+                const total = countResult.total;
+                const totalPages = Math.ceil(total/limitNum);
+
+                // Get paginated reviews
+                const sql = `
+                SELECT
+                    r.*,
+                    u.first_name,
+                    u.last_name,
+                    u.email
+                FROM reviews r
+                JOIN users u ON r.user_id = u.id
+                WHERE r.product_id = ?
+                ORDER BY r.${sortField} ${sortedOrder}
+                LIMIT ? OFFSET?
+                `;
+
+                db.all(sql, [id, limitNum, offset], (err, rows) => {
+                    if(err){
+                        return res.status(500).json({error: err.message});
+                    }
+
+                    res.json({
+                        product: product.name,
+                        data: rows,
+                        pagination: {
+                            page: pageNum,
+                            limit: limitNum,
+                            total: total,
+                            total_pages: totalPages,
+                            has_next: pageNum < totalPages,
+                            has_prev: pageNum > 1
+                        }
+                    });
+                });
+            }
+        );
+    })
+});
+
+// POST add review to product
+router.post('/:id/reviews', authenticateToken, (req, res) => {
+    const {id} = req.params;
+    const userId = req.user.id;
+    const {rating, title, comment} = req.body;
+
+    // Validation
+    if(!rating || rating < 1 || rating > 5){
+        return res.status(400).json({errror: 'Rating must be between 1 and 5'});
+    }
+
+    db.get('SELECT * FROM products WHERE id = ?', [id], (err, product) => {
+        if(err){
+            return res.status(500).json({error: err.message});
+        }
+        if(!product){
+            return res.status(404).json({error: 'Product not found'});
+        }
+
+        // Check if user has purchased this product
+        const orderCheckSql = `
+        SELECT o.id
+        FROM orders o
+        JOIN order_items oi ON o.id = oi.order_id
+        WHERE o.user_id = ? AND oi.product_id = ? AND o.status = 'delivered'
+        LIMIT 1
+        `;
+
+        // START FROM HERE!!!
+    })
+})
 
 // Admin-only routes - require authentication and admin role
 
@@ -323,3 +432,6 @@ router.delete('/:id/ingredients/:ingredient_id', authenticateToken, isAdmin, (re
 });
 
 module.exports = router
+
+
+//START ON LINE 30
