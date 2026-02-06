@@ -22,7 +22,7 @@ router.get('/', (req, res) =>{
     // Validate sort field to prevent SQL injection
     const validSortFields = ['name', 'price', 'created_at', 'rating'];
     const sortField = validSortFields.includes(sort) ? sort : 'created_at';
-    const sortOrder = order.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
+    const sortedOrder = order.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
 
     // Calculate pagination
     const pageNum = parseInt(page) || 1;
@@ -51,7 +51,7 @@ router.get('/', (req, res) =>{
     let params = [];
 
     if(search){
-        conditions.push('(p.ame LIKE ? OR p.description LIKE ?)');
+        conditions.push('(p.name LIKE ? OR p.description LIKE ?)');
         params.push(`%${search}%`, `%${search}%`);
     }
 
@@ -64,7 +64,7 @@ router.get('/', (req, res) =>{
     // Price range filter
     if(min_price){
         conditions.push('p.price >= ?');
-        this.param.push(parseFloat(min_price));
+        params.push(parseFloat(min_price));
     }
 
     if(max_price){
@@ -89,7 +89,7 @@ router.get('/', (req, res) =>{
     if(sortField === 'rating'){
         sql += ` ORDER BY average_rating ${sortedOrder}`;
     }else{
-        sql += ` ORDER BY p.${sortField} ${sortOrder}`;
+        sql += ` ORDER BY p.${sortField} ${sortedOrder}`;
     }
 
     // Add pagination
@@ -123,19 +123,6 @@ router.get('/', (req, res) =>{
                 }
             });
         });
-    });
-
-    // Filter by category if provided
-    if(category){
-        sql += ' WHERE c.name = ?';
-        params.push(category);
-    }
-
-    db.all(sql, params, (err, rows) =>{
-        if(err){
-            return res.status(500).json({error: err.message});
-        }
-        res.json({data: rows});
     });
 });
 
@@ -206,7 +193,7 @@ router.get('/:id/reviews', (req, res) => {
 
     const validSortFields = ['rating', 'created_at'];
     const sortField = validSortFields.includes(sort) ? sort : 'created_at';
-    const sortOrder = order.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
+    const sortedOrder = order.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
 
     const pageNum = parseInt(page) || 1;
     const limitNum = Math.min(parseInt(limit) || 10, 50);
@@ -297,13 +284,114 @@ router.post('/:id/reviews', authenticateToken, (req, res) => {
         LIMIT 1
         `;
 
-        // START FROM HERE!!!
-    })
-})
+        db.get(orderCheckSql, [userId, id], (err, order) => {
+            if(err){
+                return res.status(500).json({error: err.message});
+            }
+
+            if(!order){
+                return res.status(403).json({
+                    error: 'You can only review products you have purchased and received'
+                });
+            }
+
+            // Insert review
+            const sql = `
+            INSERT INTO reviews (product_id, user_id, rating, title, comment)
+            VALUES (?, ?, ?, ?)
+            `;
+
+            db.run(sql, [id, userId, rating, title, comment], function(err){
+                if(err){
+                    if(err.message.includes('UNIQUE')){
+                        return res.status(409).json({error: 'You have already reviewed this product'});
+                    }
+                    return res.status(500).json({error: err.message});
+                }
+                res.status(201).json({
+                    message: 'Review added successfully',
+                    data: {
+                        review_id: this.lastID,
+                        product_id: id,
+                        rating: rating
+                    }
+                });
+            });
+        });
+    });
+});
+
+// PUT update review
+router.put('/reviews/:review_id', authenticateToken, (req, res) => {
+    const {review_id} = req.params;
+    const userId = req.user.id;
+    const {rating, title, comment} = req.body;
+
+    if(rating && (rating < 1 || rating > 5)){
+        return res.status(400).json({error: 'Rating must be between 1 and 5'});
+    }
+
+    // Check if review belongs to user
+    db.get('SELECT * FROM reviews WHERE id = ? AND user_id = ?', [review_id, userId], (err, review) => {
+        if(err){
+            return res.status(500).json({error: err.message});
+        }
+        if(!review){
+            return res.status(404).json({error: 'Review not found'});
+        }
+
+        const sql = `
+        UPDATE reviews
+        SET rating = ?, title = ?, comment = ?, updated_at = CURRENT_TIMESTAMP
+        WHERE id = ?
+        `;
+
+        db.run(sql, [rating, title, comment, review_id], function(err){
+            if(err){
+                return res.status(500).json({error: err.message});
+            }
+
+            res.json({message: 'Review updated successfully'});
+        });
+    });
+});
+
+// DELETE review
+router.delete('/reviews/:review_id', authenticateToken, (req, res) => {
+    const {review_id} = req.params;
+    const userId = req.user.id;
+    const isAdminUser = req.user.role === 'admin';
+
+    let sql = 'SELECT * FROM reviews WHERE id = ?';
+    let params = [review_id];
+
+    // Non-admin users can only delete their own reviews
+    if(!isAdminUser){
+        sql += ' AND user_id = ?';
+        params.push(userId);
+    }
+
+    db.get(sql, params, (err, review) => {
+        if(err){
+            return res.status(500).json({error: err.message});
+        }
+        if(!review){
+            return res.status(404).json({error: 'Review not found'});
+        }
+
+        db.run('DELETE FROM reviews WHERE id = ?', [review_id], function(err){
+            if(err){
+                return res.status(500).json({error: err.message});
+            }
+
+            res.json({message: 'Review deleted successfully'});
+        });
+    });
+});
 
 // Admin-only routes - require authentication and admin role
 
-// POST create new product
+// POST create new product (admin only)
 router.post('/', authenticateToken, isAdmin, (req, res) => {
     const { name, description, price, category, image_url, available } = req.body;
 

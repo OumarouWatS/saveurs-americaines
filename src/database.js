@@ -130,7 +130,7 @@ db.run(`
 
 // Create reviews table
 db.run(`
-    CREATE TABLE IF NOT EXITS review (
+    CREATE TABLE IF NOT EXISTS reviews (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     product_id INTEGER NOT NULL,
     user_id INTEGER NOT NULL,
