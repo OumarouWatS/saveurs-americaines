@@ -1,21 +1,51 @@
 {
   "name": "pastry-api",
   "version": "1.0.0",
-  "main": "index.js",
+  "description": "Bakery Shop REST API",
+  "main": "src/server.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node src/server.js",
-    "dev": "nodemon src/server.js"
+    "dev": "nodemon src/server.js",
+    "test": "NODE_ENV=test jest --coverage --verbose --runInBand",
+    "test:watch": "NODE_ENV=test jest --watch",
+    "test:unit": "NODE_ENV=test jest --testPathPattern=unit",
+    "test:integration": "NODE_ENV=test jest --testPathPattern=integration"
   },
-  "keywords": [],
-  "author": "",
+  "jest": {
+    "testEnvironment": "node",
+    "coverageDirectory": "coverage",
+    "collectCoverageFrom": [
+      "src/**/*.js",
+      "!src/server.js"
+    ],
+    "testMatch": [
+      "**/__tests__/**/*.test.js"
+    ],
+    "verbose": true
+  },
+  "keywords": [
+    "api",
+    "rest",
+    "pastry",
+    "bakery",
+    "e-commerce"
+  ],
+  "author": "Salome Oumarou Wate",
   "license": "ISC",
-  "description": "",
   "dependencies": {
+    "bcrypt": "^6.0.0",
+    "cors": "^2.8.6",
+    "dotenv": "^17.2.4",
     "express": "^5.2.1",
+    "express-rate-limit": "^8.2.1",
+    "jsonwebtoken": "^9.0.3",
+    "morgan": "^1.10.1",
     "sqlite3": "^5.1.7"
   },
   "devDependencies": {
-    "nodemon": "^3.1.11"
+    "@types/jsonwebtoken": "^9.0.10",
+    "jest": "^29.7.0",
+    "nodemon": "^3.1.11",
+    "supertest": "^6.3.3"
   }
 }
