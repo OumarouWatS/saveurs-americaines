@@ -1,19 +1,23 @@
-const app = require('./app'); // import the app
-const { connectDB } = require('./database'); // your DB connection
+require('dotenv').config();
+const createApp = require('./app');
+
 const PORT = process.env.PORT || 3000;
 
-// Connect to DB and start server
-connectDB()
-  .then(() => {
-    console.log('Connected to database');
+// Create the Express app
+const app = createApp();
 
-    app.listen(PORT, () => {
-      console.log(`Server is running on http://localhost:${PORT}`);
-    });
-  })
-  .catch((err) => {
-    console.error('Failed to connect to database', err);
-  });
+// Start server
+app.listen(PORT, () => {
+  console.log(`
+                                                   
+    Saveurs Americaines Server Running     
+                                                    
+    Environment: ${(process.env.NODE_ENV || 'development').padEnd(10)}
+    Port: ${PORT.toString().padEnd(10)}             
+    URL: http://localhost:${PORT}                   
+
+  `);
+});
 
 // Handle unhandled promise rejections
 process.on('unhandledRejection', (err) => {
